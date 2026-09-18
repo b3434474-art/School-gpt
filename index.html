@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f6a6c8">
+  <meta name="description" content="SchoolGPT — a free school-focused text and voice assistant.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>SchoolGPT</title>
+  <style>
+    :root{--bg:#fff7fb;--card:#fff;--text:#27212a;--muted:#756b77;--accent:#e979ad;--accent2:#f6a6c8;--border:#efd8e4;--user:#ffe1ee;--bot:#f5eef3}
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:linear-gradient(145deg,#fff7fb,#f9f4ff);color:var(--text);min-height:100vh}
+    .app{max-width:900px;margin:auto;min-height:100vh;display:flex;flex-direction:column}
+    header{padding:18px 18px 12px;display:flex;align-items:center;gap:12px;position:sticky;top:0;background:#fff9fcdd;backdrop-filter:blur(12px);z-index:2;border-bottom:1px solid var(--border)}
+    .logo{width:46px;height:46px;border-radius:15px;background:var(--accent2);display:grid;place-items:center;font-size:24px;box-shadow:0 5px 18px #e979ad33}
+    h1{font-size:21px;margin:0} header p{margin:2px 0 0;color:var(--muted);font-size:13px}
+    .status{margin-left:auto;font-size:12px;color:var(--muted);text-align:right}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#59b77b;margin-right:5px}
+    main{flex:1;padding:18px}.welcome{text-align:center;padding:26px 8px}.welcome h2{margin:5px 0 8px;font-size:30px}.welcome p{color:var(--muted);margin:0 auto;max-width:580px;line-height:1.5}
+    .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:18px}.chip{border:1px solid var(--border);background:#fff;border-radius:999px;padding:9px 13px;cursor:pointer;color:var(--text)}
+    #chat{display:flex;flex-direction:column;gap:12px}.msg{max-width:85%;padding:12px 14px;border-radius:17px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}.user{align-self:flex-end;background:var(--user);border-bottom-right-radius:5px}.bot{align-self:flex-start;background:var(--bot);border-bottom-left-radius:5px}.meta{font-size:11px;color:var(--muted);margin:0 5px -7px}
+    .composer{position:sticky;bottom:0;padding:12px 14px 16px;background:#fff9fcdd;backdrop-filter:blur(12px);border-top:1px solid var(--border)}.row{display:flex;gap:8px;align-items:center}.input{flex:1;min-height:48px;max-height:130px;resize:none;border:1px solid var(--border);border-radius:16px;padding:13px 14px;font:inherit;outline:none;background:#fff}.input:focus{border-color:var(--accent)}
+    button{border:0;font:inherit;cursor:pointer}.send,.mic{width:48px;height:48px;border-radius:15px;background:var(--accent);color:#fff;font-size:19px}.mic{background:#6f6470}.mic.listening{background:#d95555;animation:pulse 1s infinite}.small{margin-top:8px;text-align:center;font-size:11px;color:var(--muted)}
+    @keyframes pulse{50%{transform:scale(1.06)}} .tools{display:flex;gap:8px;margin-top:9px}.tool{background:#fff;border:1px solid var(--border);border-radius:12px;padding:8px 10px;font-size:12px;color:var(--muted)}
+    @media(max-width:600px){main{padding:12px}.welcome h2{font-size:26px}.msg{max-width:92%}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">🎓</div>
+    <div><h1>SchoolGPT</h1><p>Your free school text + voice assistant</p></div>
+    <div class="status"><span class="dot"></span>Ready</div>
+  </header>
+  <main>
+    <section class="welcome" id="welcome">
+      <h2>Hey! I'm SchoolGPT 👋</h2>
+      <p>Ask me a school question, explain a topic, practice vocabulary, or use the microphone to talk to me.</p>
+      <div class="chips">
+        <button class="chip" data-q="Explain photosynthesis simply">🌱 Explain a topic</button>
+        <button class="chip" data-q="Help me study for a test">📚 Study help</button>
+        <button class="chip" data-q="What is the difference between a noun and a verb?">✏️ Language arts</button>
+        <button class="chip" data-q="Give me a quick math practice problem">➗ Math practice</button>
+      </div>
+    </section>
+    <section id="chat" aria-live="polite"></section>
+  </main>
+  <div class="composer">
+    <div class="row">
+      <button class="mic" id="mic" title="Talk to SchoolGPT" aria-label="Talk to SchoolGPT">🎙️</button>
+      <textarea class="input" id="input" rows="1" placeholder="Ask SchoolGPT anything for school…"></textarea>
+      <button class="send" id="send" title="Send" aria-label="Send">➤</button>
+    </div>
+    <div class="tools">
+      <button class="tool" id="speakToggle">🔊 Voice replies: On</button>
+      <button class="tool" id="clear">🧹 Clear chat</button>
+    </div>
+    <div class="small">SchoolGPT is a study helper. Check important answers with your teacher or textbook.</div>
+  </div>
+</div>
+<script>
+const input=document.getElementById('input'), chat=document.getElementById('chat'), mic=document.getElementById('mic'), send=document.getElementById('send'), welcome=document.getElementById('welcome');
+let voiceReplies=true, recognition=null;
+
+function addMsg(text,who){
+  const wrap=document.createElement('div'); wrap.className='msg '+who; wrap.textContent=text; chat.appendChild(wrap);
+  chat.scrollIntoView({behavior:'smooth',block:'end'});
+}
+function answer(q){
+  const s=q.toLowerCase().trim();
+  if(!s) return "Type or say a question and I'll help.";
+  if(/^(hi|hello|hey|yo)\b/.test(s)) return "Hey! 👋 What are you working on today?";
+  if(s.includes('photosynthesis')) return "Photosynthesis is how plants make food using light energy. Plants take in water and carbon dioxide and use sunlight to make glucose (sugar) and oxygen.";
+  if(s.includes('mitosis')) return "Mitosis is a process where one cell divides to make two genetically similar cells. It is important for growth and replacing damaged cells.";
+  if(s.includes('noun') && s.includes('verb')) return "A noun names a person, place, thing, or idea. A verb describes an action or a state of being. Example: In “The dog runs,” “dog” is the noun and “runs” is the verb.";
+  if(s.includes('mean') && s.includes('democracy')) return "A democracy is a form of government in which people participate in choosing leaders and making civic decisions, often through voting.";
+  if(/\b(7\s*[+＋]\s*8|8\s*[+＋]\s*7)\b/.test(s)) return "7 + 8 = 15.";
+  if(/math practice|practice problem|give me a.*math/.test(s)) return "Try this: If a notebook costs $3 and you buy 4, how much do you spend? (Answer: $12.)";
+  if(/study|test|quiz|exam/.test(s)) return "Try a 20-minute study cycle: 1) review the key ideas, 2) close your notes and recall what you remember, 3) practice a few questions, and 4) check what you missed.";
+  if(/homework/.test(s)) return "Absolutely. Send me the exact question or problem and tell me what you've tried so far. I'll explain the steps rather than just dropping an answer.";
+  if(/thank/.test(s)) return "You're welcome! 😄";
+  if(/what can you do|help/.test(s)) return "I can explain school topics, walk through homework problems, make practice questions, help with vocabulary, and read replies aloud. Try asking a specific question!";
+  return "I can help with that! For the most useful answer, give me the exact school question or topic. If you want, say “explain it simply” or “quiz me” too.";
+}
+function speak(text){ if(!voiceReplies || !('speechSynthesis' in window)) return; speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=.96; speechSynthesis.speak(u); }
+function sendText(text=input.value){
+  text=text.trim(); if(!text)return; welcome.style.display='none'; input.value=''; input.style.height='48px';
+  addMsg(text,'user'); const reply=answer(text); setTimeout(()=>{addMsg(reply,'bot');speak(reply)},180);
+}
+send.onclick=()=>sendText(); input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText()}});
+input.addEventListener('input',()=>{input.style.height='48px';input.style.height=Math.min(input.scrollHeight,130)+'px'});
+document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{input.value=b.dataset.q;sendText()});
+document.getElementById('clear').onclick=()=>{chat.innerHTML='';welcome.style.display='block';};
+document.getElementById('speakToggle').onclick=()=>{voiceReplies=!voiceReplies;document.getElementById('speakToggle').textContent='🔊 Voice replies: '+(voiceReplies?'On':'Off');if(!voiceReplies)speechSynthesis?.cancel()};
+
+if('webkitSpeechRecognition' in window || 'SpeechRecognition' in window){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; recognition=new SR(); recognition.lang='en-US'; recognition.interimResults=false; recognition.continuous=false;
+  recognition.onstart=()=>{mic.classList.add('listening');mic.textContent='⏹️'};
+  recognition.onend=()=>{mic.classList.remove('listening');mic.textContent='🎙️'};
+  recognition.onerror=()=>{mic.classList.remove('listening');mic.textContent='🎙️'};
+  recognition.onresult=e=>{input.value=e.results[0][0].transcript;sendText()};
+  mic.onclick=()=>{try{recognition.start()}catch(e){recognition.stop()}};
+}else{
+  mic.title='Voice input is not supported by this browser';
+  mic.onclick=()=>addMsg('Voice input is not supported in this browser. Try Chrome or another Chromium-based browser. Voice replies still work where supported.','bot');
+}
+</script>
+</body>
+</html>
