@@ -1,0 +1,9 @@
+{
+  "name": "SchoolGPT",
+  "short_name": "SchoolGPT",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fff7fb",
+  "theme_color": "#f6a6c8",
+  "description": "A free school-focused text and voice assistant."
+}
